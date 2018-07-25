@@ -1,0 +1,28 @@
+public static Set<Path> findWarningFiles(Set<Path> logFiles) {
+        Set<Path> cFiles = new HashSet<>();
+        Path path, filePath;
+        Pattern pattern1 = Pattern.compile("^\\s*(?:\\d+>)?(?<filename>.*)\\((?<line>\\d+)\\)\\x20?:\\x20warning\\x20(?<id>C\\d+):(?<message>.*)$");
+        Pattern pattern2 = Pattern.compile("(?<=\\[D).+?(?=\\])");
+
+        for (Path logFile : logFiles) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(String.valueOf(logFile)))) {
+                for (String line; (line = reader.readLine()) != null; ) {
+                    Matcher matcher1 = pattern1.matcher(line);
+                    if (matcher1.find() && matcher1.group(1).matches("([^\\s]+(\\.(?i)(c|cc|cpp)(?<!pb.cc))$)")) {
+                        filePath = Paths.get(matcher1.group(1).substring(matcher1.group(1).lastIndexOf(">") + 1));
+                        Matcher matcher2 = pattern2.matcher(matcher1.group(4));
+                        if (matcher2.find()) {
+                            if (filePath.isAbsolute()) {
+                                cFiles.add(filePath);
+                            } else {
+                                path = Paths.get(Paths.get("D" + matcher2.group()).getParent().toString() + "\\" + filePath).normalize();
+                                cFiles.add(path);
+                            }
+                        }
+                    }
+                }
+            } catch (IOException e) {
+            }
+        }
+        return cFiles;
+    }
